@@ -3,11 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI ChatBot</title>
-    <link rel="shortcut icon" href="https://img.freepik.com/premium-vector/robot-chat-chat-bot-logo-modern-conversation-automatic-technology-logo-design-vector-template_148524-1363.jpg?w=2000" type="image/x-icon">
+    <title>Multilingual AI ChatBot</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        /* Saved notification toast */
+        .refresh-chat-btn {
+            background: #3498db;
+            margin-right: 0;
+        }
+        .refresh-chat-btn:hover {
+            background: #2980b9;
+        }
         .saved-toast {
             position: fixed;
             bottom: 20px;
@@ -36,31 +41,23 @@
         @keyframes fadeOut {
             to { opacity: 0; visibility: hidden; }
         }
-        .refresh-btn {
-            background: #3498db;
-            margin-right: 10px;
-        }
-        .refresh-btn:hover {
-            background: #2980b9;
-        }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h2>ChatBot</h2>
-            <div>
-                <button id="refresh-btn" class="clear-btn refresh-btn">Refresh</button>
-                <button id="clear-btn" class="clear-btn">Clear History</button>
-            </div>
+            <h2>Multilingual ChatBot</h2>
+            <button id="refresh-chat-btn" class="clear-btn refresh-chat-btn">Refresh</button>
         </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="message bot-message">
-                <strong>Bot:</strong> Hello! Your messages will be saved automatically. 
-            </div>
-        </div>
+        <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-area">
             <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <select id="language-select" class="lang-select">
+                <option value="en-US">English</option>
+                <option value="te-IN">Telugu</option>
+                <option value="hi-IN">Hindi</option>
+            </select>
+            <button id="mic-btn" class="mic-button" title="Speak your message">🎤</button>
             <button id="send-btn">Send</button>
         </div>
     </div>
@@ -69,23 +66,79 @@
         const messagesDiv = document.getElementById('chat-messages');
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
-        const clearBtn = document.getElementById('clear-btn');
-        const refreshBtn = document.getElementById('refresh-btn');
+        const refreshChatBtn = document.getElementById('refresh-chat-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const langSelect = document.getElementById('language-select');
 
+        // Text-to-Speech Function (uses speaker icon)
+        function speakText(text, lang) {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 1;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Speech Recognition Setup
+        let recognition = null;
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = langSelect.value;
+
+            langSelect.addEventListener('change', () => {
+                recognition.lang = langSelect.value;
+            });
+
+            recognition.addEventListener('result', (event) => {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                // Auto-send after voice input
+                setTimeout(() => {
+                    sendMessage();
+                }, 100);
+            });
+
+            recognition.addEventListener('error', (event) => {
+                console.error('Speech recognition error:', event.error);
+                if (event.error === 'not-allowed') {
+                    alert('Microphone access denied. Please allow microphone permissions.');
+                }
+            });
+
+            recognition.addEventListener('end', () => {
+                micBtn.disabled = false;
+                micBtn.textContent = '🎤';
+                userInput.focus();
+            });
+        } else {
+            micBtn.disabled = true;
+            micBtn.title = "Speech recognition not supported";
+        }
+
+        micBtn.addEventListener('click', () => {
+            if (!recognition) {
+                alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+                return;
+            }
+            micBtn.disabled = true;
+            micBtn.textContent = '⏺';
+            recognition.start();
+        });
+
+        // Helper Functions
         function showSavedNotification(success = true) {
             const toast = document.createElement('div');
             toast.className = 'saved-toast';
             if (!success) toast.classList.add('error');
-            toast.innerHTML = success ? 'Chat saved to database!' : 'Failed to save chat';
+            toast.innerHTML = success ? 'Message Sent' : 'Failed to send message';
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2500);
-        }
-
-        function appendMessage(role, content) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', role === 'user' ? 'user-message' : 'bot-message');
-            msgDiv.innerHTML = `<strong>${role === 'user' ? 'You' : 'Bot'}:</strong> ${escapeHtml(content)}`;
-            messagesDiv.appendChild(msgDiv);
         }
 
         function escapeHtml(text) {
@@ -98,37 +151,57 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        async function loadHistory() {
-            try {
-                const res = await fetch('/history');
-                const messages = await res.json();
-                messagesDiv.innerHTML = '';
-                if (messages.length === 0) {
-                    appendMessage('assistant', 'No previous messages. Start chatting!');
-                } else {
-                    for (const msg of messages) {
-                        appendMessage(msg.role, msg.content);
-                    }
-                }
-                scrollToBottom();
-            } catch (error) {
-                console.error('Error loading history:', error);
+        function appendMessage(role, content, autoSpeak = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', role === 'user' ? 'user-message' : 'bot-message');
+            
+            // Speaker button (icon) - placed before text using CSS order
+            if (role === 'assistant') {
+                const speakBtn = document.createElement('button');
+                speakBtn.innerHTML = '🔊';   // speaker icon
+                speakBtn.classList.add('speak-btn');
+                speakBtn.title = 'Read aloud';
+                speakBtn.onclick = () => {
+                    const currentLang = langSelect.value;
+                    speakText(content, currentLang);
+                };
+                msgDiv.appendChild(speakBtn);
             }
+            
+            // Text content
+            const contentSpan = document.createElement('span');
+            contentSpan.classList.add('message-content');
+            contentSpan.innerHTML = `<strong>${role === 'user' ? 'You' : 'Bot'}:</strong> ${escapeHtml(content)}`;
+            msgDiv.appendChild(contentSpan);
+            
+            if (role === 'assistant' && autoSpeak) {
+                const currentLang = langSelect.value;
+                speakText(content, currentLang);
+            }
+            
+            messagesDiv.appendChild(msgDiv);
+        }
+
+        function showGreeting() {
+            messagesDiv.innerHTML = '';
+            appendMessage('assistant', 'Hi! How can I help you today? Select your language above and start chatting.', false);
+            scrollToBottom();
         }
 
         async function sendMessage() {
-            const message = userInput.value.trim();
+            let message = userInput.value.trim();
             if (!message) return;
 
+            const selectedLang = langSelect.value;
+            
             userInput.disabled = true;
             sendBtn.disabled = true;
+            micBtn.disabled = true;
 
-            // Show user message immediately
-            appendMessage('user', message);
+            appendMessage('user', message, false);
             userInput.value = '';
             scrollToBottom();
 
-            // Typing indicator
             const typingDiv = document.createElement('div');
             typingDiv.classList.add('message', 'bot-message', 'typing-indicator');
             typingDiv.innerHTML = '<strong>Bot:</strong> typing...';
@@ -139,50 +212,41 @@
                 const res = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({ 
+                        message: message,
+                        language: selectedLang
+                    })
                 });
                 const data = await res.json();
                 typingDiv.remove();
 
-                // Show save notification based on backend response
-                if (data.saved === true) {
-                    showSavedNotification(true);
-                } else {
-                    showSavedNotification(false);
-                }
-
-                appendMessage('assistant', data.reply);
+                showSavedNotification(data.saved === true);
+                appendMessage('assistant', data.reply, true);
                 scrollToBottom();
             } catch (error) {
                 typingDiv.remove();
-                appendMessage('assistant', 'Network error. Please try again.');
+                appendMessage('assistant', 'Network error. Please try again.', false);
                 showSavedNotification(false);
                 scrollToBottom();
             } finally {
                 userInput.disabled = false;
                 sendBtn.disabled = false;
+                micBtn.disabled = false;
                 userInput.focus();
             }
         }
 
-        async function clearHistory() {
-            if (confirm('Delete all chat history?')) {
-                await fetch('/history', { method: 'DELETE' });
-                messagesDiv.innerHTML = '';
-                appendMessage('assistant', 'History cleared. Start fresh!');
-                scrollToBottom();
-                showSavedNotification(true);
-            }
+        function refreshChatDisplay() {
+            showGreeting();
         }
 
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
-        clearBtn.addEventListener('click', clearHistory);
-        refreshBtn.addEventListener('click', loadHistory);
+        refreshChatBtn.addEventListener('click', refreshChatDisplay);
 
-        loadHistory();
+        showGreeting();
     </script>
 </body>
 </html>
