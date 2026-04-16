@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 AI ChatBot</title>
+    <title>AI ChatBot</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
         /* Saved notification toast */
@@ -47,15 +47,15 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h2>🤖 ChatBot (Auto-Saved to MongoDB)</h2>
+            <h2>ChatBot (Auto-Saved to MongoDB)</h2>
             <div>
-                <button id="refresh-btn" class="clear-btn refresh-btn">🔄 Refresh</button>
-                <button id="clear-btn" class="clear-btn">🗑️ Clear History</button>
+                <button id="refresh-btn" class="clear-btn refresh-btn">Refresh</button>
+                <button id="clear-btn" class="clear-btn">Clear History</button>
             </div>
         </div>
         <div class="chat-messages" id="chat-messages">
             <div class="message bot-message">
-                <strong>Bot:</strong> Hello! Your messages will be saved automatically. 💾
+                <strong>Bot:</strong> Hello! Your messages will be saved automatically. 
             </div>
         </div>
         <div class="chat-input-area">
@@ -75,7 +75,7 @@
             const toast = document.createElement('div');
             toast.className = 'saved-toast';
             if (!success) toast.classList.add('error');
-            toast.innerHTML = success ? '💾 Chat saved to database!' : '⚠️ Failed to save chat';
+            toast.innerHTML = success ? 'Chat saved to database!' : 'Failed to save chat';
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2500);
         }
@@ -154,7 +154,7 @@
                 scrollToBottom();
             } catch (error) {
                 typingDiv.remove();
-                appendMessage('assistant', '⚠️ Network error. Please try again.');
+                appendMessage('assistant', 'Network error. Please try again.');
                 showSavedNotification(false);
                 scrollToBottom();
             } finally {
@@ -168,7 +168,7 @@
             if (confirm('Delete all chat history?')) {
                 await fetch('/history', { method: 'DELETE' });
                 messagesDiv.innerHTML = '';
-                appendMessage('assistant', '✨ History cleared. Start fresh!');
+                appendMessage('assistant', 'History cleared. Start fresh!');
                 scrollToBottom();
                 showSavedNotification(true);
             }
