@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 AI ChatBot</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Saved notification toast */
+        .saved-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2ecc71;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease, fadeOut 0.5s ease 2s forwards;
+            pointer-events: none;
+        }
+        .saved-toast.error {
+            background: #e74c3c;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; visibility: hidden; }
+        }
+        .refresh-btn {
+            background: #3498db;
+            margin-right: 10px;
+        }
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>🤖 ChatBot (Auto-Saved to MongoDB)</h2>
+            <div>
+                <button id="refresh-btn" class="clear-btn refresh-btn">🔄 Refresh</button>
+                <button id="clear-btn" class="clear-btn">🗑️ Clear History</button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot-message">
+                <strong>Bot:</strong> Hello! Your messages will be saved automatically. 💾
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const messagesDiv = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+
+        function showSavedNotification(success = true) {
+            const toast = document.createElement('div');
+            toast.className = 'saved-toast';
+            if (!success) toast.classList.add('error');
+            toast.innerHTML = success ? '💾 Chat saved to database!' : '⚠️ Failed to save chat';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        function appendMessage(role, content) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', role === 'user' ? 'user-message' : 'bot-message');
+            msgDiv.innerHTML = `<strong>${role === 'user' ? 'You' : 'Bot'}:</strong> ${escapeHtml(content)}`;
+            messagesDiv.appendChild(msgDiv);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function scrollToBottom() {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/history');
+                const messages = await res.json();
+                messagesDiv.innerHTML = '';
+                if (messages.length === 0) {
+                    appendMessage('assistant', 'No previous messages. Start chatting!');
+                } else {
+                    for (const msg of messages) {
+                        appendMessage(msg.role, msg.content);
+                    }
+                }
+                scrollToBottom();
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Show user message immediately
+            appendMessage('user', message);
+            userInput.value = '';
+            scrollToBottom();
+
+            // Typing indicator
+            const typingDiv = document.createElement('div');
+            typingDiv.classList.add('message', 'bot-message', 'typing-indicator');
+            typingDiv.innerHTML = '<strong>Bot:</strong> typing...';
+            messagesDiv.appendChild(typingDiv);
+            scrollToBottom();
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const data = await res.json();
+                typingDiv.remove();
+
+                // Show save notification based on backend response
+                if (data.saved === true) {
+                    showSavedNotification(true);
+                } else {
+                    showSavedNotification(false);
+                }
+
+                appendMessage('assistant', data.reply);
+                scrollToBottom();
+            } catch (error) {
+                typingDiv.remove();
+                appendMessage('assistant', '⚠️ Network error. Please try again.');
+                showSavedNotification(false);
+                scrollToBottom();
+            } finally {
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        async function clearHistory() {
+            if (confirm('Delete all chat history?')) {
+                await fetch('/history', { method: 'DELETE' });
+                messagesDiv.innerHTML = '';
+                appendMessage('assistant', '✨ History cleared. Start fresh!');
+                scrollToBottom();
+                showSavedNotification(true);
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        clearBtn.addEventListener('click', clearHistory);
+        refreshBtn.addEventListener('click', loadHistory);
+
+        loadHistory();
+    </script>
+</body>
+</html>
