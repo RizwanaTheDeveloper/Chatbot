@@ -8,22 +8,19 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
-from groq import AsyncGroq  # <-- Import the Groq library
+from groq import AsyncGroq
 import traceback
 
 load_dotenv()
 
-# ===== CONFIGURATION =====
 MONGO_URL = os.getenv("MONGO_URL")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # <-- Load the Groq API key
-MODEL_NAME = os.getenv("MODEL_NAME") # <-- Your chosen Groq model
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3-70b-8192")
 
-# ===== FASTAPI APP =====
-app = FastAPI(title="ChatBot")
+app = FastAPI(title="Multilingual ChatBot")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# ===== MONGODB =====
 try:
     client = AsyncIOMotorClient(MONGO_URL)
     db = client.chatbot_db
@@ -33,49 +30,54 @@ except Exception as e:
     print(f"MongoDB error: {e}")
     collection = None
 
-# ===== GROQ CLIENT =====
-groq_client = AsyncGroq(api_key=GROQ_API_KEY)  # <-- Initialize the Groq client
-
+groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 logging.basicConfig(level=logging.INFO)
 
 class ChatRequest(BaseModel):
     message: str
+    language: str = "en-US"
 
 class ChatResponse(BaseModel):
     reply: str
     saved: bool
 
-# ===== AI MODEL REPLY (USING GROQ) =====
-async def get_model_reply(user_message: str) -> str:
+async def get_model_reply(user_message: str, target_lang: str) -> str:
     if not GROQ_API_KEY:
         return "ERROR: Groq API key is missing."
 
+    lang_map = {"en-US": "English", "te-IN": "Telugu", "hi-IN": "Hindi"}
+    language_name = lang_map.get(target_lang, "English")
+
+    system_prompt = f"""
+You are a helpful assistant. 
+Always respond in {language_name} language only. 
+Use the appropriate script: for Telugu use Telugu script, for Hindi use Devanagari script, for English use Latin script.
+Keep your answers natural and fluent in that language.
+Do not mix languages. Respond only in {language_name}.
+"""
     try:
-        print(f"Calling Groq model: {MODEL_NAME}")
-        # <-- Call Groq's chat completion endpoint
         response = await groq_client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
             max_tokens=500,
             temperature=0.7,
         )
         reply = response.choices[0].message.content.strip()
-        print(f"Model replied: {reply[:100]}...")
         return reply
     except Exception as e:
         print(f"Groq API error: {type(e).__name__}: {e}")
         traceback.print_exc()
         return f"Model error: {str(e)[:200]}"
 
-# ===== DATABASE FUNCTIONS (UNCHANGED) =====
 async def save_message(role: str, content: str) -> bool:
     if collection is None:
-        print("No database connection, skipping save")
         return False
     try:
         doc = {"role": role, "content": content, "timestamp": datetime.utcnow()}
         await collection.insert_one(doc)
-        print(f"Saved {role} message")
         return True
     except Exception as e:
         print(f"Save failed: {e}")
@@ -92,7 +94,6 @@ async def get_recent_messages(limit: int = 50):
         print(f"Failed to get messages: {e}")
         return []
 
-# ===== API ENDPOINTS (UNCHANGED) =====
 @app.get("/", response_class=HTMLResponse)
 async def chat_page(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -102,13 +103,10 @@ async def chat(chat_req: ChatRequest):
     user_msg = chat_req.message.strip()
     if not user_msg:
         raise HTTPException(400, "Empty message")
-    
-    print(f" Received: {user_msg}")
-    
+    lang = chat_req.language
     user_saved = await save_message("user", user_msg)
-    bot_reply = await get_model_reply(user_msg)
+    bot_reply = await get_model_reply(user_msg, lang)
     bot_saved = await save_message("assistant", bot_reply)
-    
     return ChatResponse(reply=bot_reply, saved=user_saved and bot_saved)
 
 @app.get("/history")
