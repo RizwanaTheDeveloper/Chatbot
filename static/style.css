@@ -5,21 +5,25 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
 body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .chat-container {
-    width: 90%;
-    max-width: 800px;
-    height: 90vh;
+    width: 100%;
+    height: 100%;
     background: white;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -33,6 +37,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .chat-header h2 {
@@ -40,7 +45,7 @@ body {
 }
 
 .clear-btn {
-    background: #e74c3c;
+    background: #3498db;
     border: none;
     color: white;
     padding: 8px 16px;
@@ -51,7 +56,7 @@ body {
 }
 
 .clear-btn:hover {
-    background: #c0392b;
+    background: #2980b9;
 }
 
 .chat-messages {
@@ -62,16 +67,22 @@ body {
     flex-direction: column;
     gap: 12px;
     background: #f4f6f9;
+    min-height: 0;
 }
 
+/* Message bubble container */
 .message {
+    display: flex;
+    align-items: center;
     max-width: 75%;
     padding: 10px 15px;
     border-radius: 20px;
     line-height: 1.4;
     word-wrap: break-word;
+    gap: 10px;
 }
 
+/* User message - background on whole flex container */
 .user-message {
     align-self: flex-end;
     background: #2c3e66;
@@ -79,12 +90,40 @@ body {
     border-bottom-right-radius: 5px;
 }
 
+/* Bot message - background on whole flex container */
 .bot-message {
     align-self: flex-start;
     background: white;
     color: #333;
     border: 1px solid #ddd;
     border-bottom-left-radius: 5px;
+}
+
+/* Text content takes remaining space */
+.message-content {
+    flex: 1;
+}
+
+/* Speaker button (icon, on the left) */
+.speak-btn {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 20px;
+    transition: background 0.2s;
+    color: inherit;
+    order: -1;  /* moves button to the left side */
+}
+
+.speak-btn:hover {
+    background: rgba(0,0,0,0.1);
+}
+
+/* Hide speaker button on user messages */
+.user-message .speak-btn {
+    display: none;
 }
 
 .typing-indicator {
@@ -98,6 +137,8 @@ body {
     background: white;
     border-top: 1px solid #e0e0e0;
     gap: 10px;
+    flex-shrink: 0;
+    align-items: center;
 }
 
 #user-input {
@@ -114,22 +155,68 @@ body {
     border-color: #2c3e66;
 }
 
+.lang-select {
+    padding: 8px 12px;
+    border-radius: 30px;
+    border: 2px solid #e0e0e0;
+    background: rgb(254, 254, 250);
+    font-size: 0.9rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.lang-select:focus {
+    border-color: #2c3e66;
+}
+
+/* Mic button - only emoji */
+.mic-button {
+    background: #f0f0f0;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 50%;
+    transition: background 0.2s, transform 0.1s;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mic-button:hover {
+    background: #e0e0e0;
+    transform: scale(1.05);
+}
+
+.mic-button:active {
+    transform: scale(0.95);
+}
+
+.mic-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Send button - wider */
 #send-btn {
     background: #2c3e66;
     color: white;
     border: none;
-    padding: 0 25px;
-    border-radius: 30px;
-    font-size: 1rem;
+    padding: 9px 20px;
+    border-radius: 40px;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: background 0.2s;
+    min-width: 70px;
 }
 
 #send-btn:hover {
     background: #1e2a4a;
 }
 
-#send-btn:disabled, #user-input:disabled {
+#send-btn:disabled, #user-input:disabled, .mic-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
