@@ -44,7 +44,8 @@ class ChatResponse(BaseModel):
 async def get_model_reply(user_message: str, language: str) -> str:
     if not GROQ_API_KEY:
         return "ERROR: Groq API key is missing."
-    lang_map = {"English": "English", "Hindi": "Hindi", "Telugu": "Telugu"}
+    # Hindi removed - only English and Telugu
+    lang_map = {"English": "English", "Telugu": "Telugu"}
     target_lang = lang_map.get(language, "English")
     system_prompt = f"You are a helpful AI assistant. Always respond in {target_lang} language only. Keep your answers concise and friendly."
     try:
