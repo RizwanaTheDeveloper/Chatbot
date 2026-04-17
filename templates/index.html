@@ -68,12 +68,15 @@
             let recognition = null;
             let isRecording = false;
             let finalTranscript = '';
+            let interimTranscript = '';
 
+            // ---------- Helper: Get language code for speech recognition ----------
             function getLanguageCode() {
                 const map = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
                 return map[languageSelect.value] || 'en-US';
             }
 
+            // ---------- Speech Recognition Setup (fixed duplicates) ----------
             function setupRecognition() {
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
                     alert('Speech recognition not supported in this browser. Use Chrome, Edge, or Safari.');
@@ -86,16 +89,24 @@
                 recog.lang = getLanguageCode();
 
                 recog.onresult = (event) => {
-                    let interim = '';
+                    interimTranscript = '';
+                    let newFinal = '';
+
                     for (let i = event.resultIndex; i < event.results.length; i++) {
                         const transcript = event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
-                            finalTranscript += transcript + ' ';
+                            newFinal += transcript + ' ';
                         } else {
-                            interim += transcript;
+                            interimTranscript += transcript;
                         }
                     }
-                    userInput.value = interim ? finalTranscript + interim : finalTranscript.trim();
+
+                    if (newFinal) {
+                        finalTranscript += newFinal;
+                    }
+
+                    // Update input box: show final + interim
+                    userInput.value = (finalTranscript + interimTranscript).trim();
                     userInput.scrollLeft = userInput.scrollWidth;
                 };
 
@@ -103,13 +114,15 @@
                     if (finalTranscript.trim()) {
                         userInput.value = finalTranscript.trim();
                         userInput.focus();
+                    } else if (interimTranscript.trim()) {
+                        userInput.value = interimTranscript.trim();
                     }
                     isRecording = false;
                     micBtn.classList.remove('recording');
                     micBtn.textContent = '🎤';
                     micBtn.title = 'Start recording';
                     userInput.placeholder = 'Type your message...';
-                    finalTranscript = '';
+                    // Do NOT clear finalTranscript here – user may want to edit before sending.
                 };
 
                 recog.onerror = (event) => {
@@ -127,10 +140,12 @@
 
             function startRecording() {
                 if (isRecording) return;
+                // Reset transcripts
+                finalTranscript = '';
+                interimTranscript = '';
+                userInput.value = '';
                 recognition = setupRecognition();
                 if (!recognition) return;
-                finalTranscript = '';
-                userInput.value = '';
                 recognition.start();
                 isRecording = true;
                 micBtn.classList.add('recording');
@@ -140,7 +155,9 @@
             }
 
             function stopRecording() {
-                if (recognition && isRecording) recognition.stop();
+                if (recognition && isRecording) {
+                    recognition.stop();
+                }
             }
 
             micBtn.addEventListener('click', () => {
@@ -149,21 +166,60 @@
             });
 
             languageSelect.addEventListener('change', () => {
-                if (recognition && !isRecording) recognition.lang = getLanguageCode();
+                if (recognition && !isRecording) {
+                    recognition.lang = getLanguageCode();
+                }
             });
 
-            // Text to speech
+            // ---------- Text to Speech (fix for Hindi/Telugu) ----------
             function speakText(text, langCode) {
                 if (!window.speechSynthesis) return;
+                window.speechSynthesis.cancel(); // stop any ongoing speech
+
                 const utterance = new SpeechSynthesisUtterance(text);
                 const langMap = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
-                utterance.lang = langMap[langCode] || 'en-US';
-                utterance.rate = 0.9;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(utterance);
+                const targetLang = langMap[langCode] || 'en-US';
+                utterance.lang = targetLang;
+
+                // Wait for voices to load, then select the best match
+                const setVoice = () => {
+                    let voices = window.speechSynthesis.getVoices();
+                    if (voices.length === 0) {
+                        // Voices not loaded yet, try again after a short delay
+                        setTimeout(setVoice, 50);
+                        return;
+                    }
+                    // Find a voice that matches the target language (e.g., 'hi-IN' or starts with 'hi')
+                    let selectedVoice = null;
+                    for (let voice of voices) {
+                        if (voice.lang === targetLang) {
+                            selectedVoice = voice;
+                            break;
+                        }
+                    }
+                    // Fallback: any voice whose language starts with the base code (e.g., 'hi' for Hindi)
+                    if (!selectedVoice) {
+                        const baseLang = targetLang.split('-')[0];
+                        for (let voice of voices) {
+                            if (voice.lang.startsWith(baseLang)) {
+                                selectedVoice = voice;
+                                break;
+                            }
+                        }
+                    }
+                    if (selectedVoice) utterance.voice = selectedVoice;
+                    window.speechSynthesis.speak(utterance);
+                };
+
+                // If voices are already loaded, call immediately; otherwise wait for event
+                if (window.speechSynthesis.getVoices().length > 0) {
+                    setVoice();
+                } else {
+                    window.speechSynthesis.onvoiceschanged = setVoice;
+                }
             }
 
-            // UI helpers
+            // ---------- UI Helpers ----------
             function showToast(success) {
                 const toast = document.createElement('div');
                 toast.className = 'saved-toast';
@@ -205,24 +261,28 @@
                 appendMessage('assistant', 'Hi! How can I help you today?', languageSelect.value);
             }
 
+            // ---------- Send Message ----------
             async function sendMessage() {
                 let message = userInput.value.trim();
                 if (!message) return;
 
                 if (isRecording) {
                     stopRecording();
-                    await new Promise(r => setTimeout(r, 150));
+                    await new Promise(r => setTimeout(r, 200));
                     message = userInput.value.trim();
                     if (!message) return;
                 }
 
                 const lang = languageSelect.value;
-                // disable UI
+                // Disable UI
                 const disableElems = [userInput, sendBtn, micBtn, languageSelect];
                 disableElems.forEach(el => el.disabled = true);
 
                 appendMessage('user', message);
                 userInput.value = '';
+                // Clear speech recognition transcripts after sending
+                finalTranscript = '';
+                interimTranscript = '';
 
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'message bot-message typing-indicator';
