@@ -104,7 +104,7 @@ body {
 }
 
 .speaker-btn {
-    background: none;
+    background: #04101d;
     border: none;
     font-size: 1.2rem;
     cursor: pointer;
@@ -291,7 +291,7 @@ button:disabled, select:disabled, input:disabled {
         padding: 4px 8px;
     }
     #send-btn {
-        padding: 8 12px;
+        padding: 6 12px;
         font-size: 0.75rem;
     }
 }
@@ -307,6 +307,6 @@ button:disabled, select:disabled, input:disabled {
         min-width: 32px;
     }
     #send-btn {
-        padding: 6 10px;
+        padding: 5 10px;
     }
 }
