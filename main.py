@@ -13,17 +13,14 @@ import traceback
 
 load_dotenv()
 
-# ===== CONFIGURATION =====
 MONGO_URL = os.getenv("MONGO_URL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME")
 
-# ===== FASTAPI APP =====
 app = FastAPI(title="ChatBot")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# ===== MONGODB =====
 try:
     client = AsyncIOMotorClient(MONGO_URL)
     db = client.chatbot_db
@@ -33,9 +30,7 @@ except Exception as e:
     print(f"MongoDB error: {e}")
     collection = None
 
-# ===== GROQ CLIENT =====
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
-
 logging.basicConfig(level=logging.INFO)
 
 class ChatRequest(BaseModel):
@@ -46,22 +41,13 @@ class ChatResponse(BaseModel):
     reply: str
     saved: bool
 
-# ===== AI MODEL REPLY =====
 async def get_model_reply(user_message: str, language: str) -> str:
     if not GROQ_API_KEY:
         return "ERROR: Groq API key is missing."
-
-    lang_map = {
-        "English": "English",
-        "Hindi": "Hindi",
-        "Telugu": "Telugu"
-    }
+    lang_map = {"English": "English", "Hindi": "Hindi", "Telugu": "Telugu"}
     target_lang = lang_map.get(language, "English")
-    
     system_prompt = f"You are a helpful AI assistant. Always respond in {target_lang} language only. Keep your answers concise and friendly."
-
     try:
-        print(f"Calling Groq model: {MODEL_NAME} | Language: {target_lang}")
         response = await groq_client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
@@ -72,14 +58,11 @@ async def get_model_reply(user_message: str, language: str) -> str:
             temperature=0.7,
         )
         reply = response.choices[0].message.content.strip()
-        print(f"Model replied: {reply[:100]}...")
         return reply
     except Exception as e:
-        print(f"Groq API error: {type(e).__name__}: {e}")
         traceback.print_exc()
         return f"Model error: {str(e)[:200]}"
 
-# ===== DATABASE FUNCTIONS =====
 async def save_message(role: str, content: str) -> bool:
     if collection is None:
         return False
@@ -102,7 +85,6 @@ async def get_recent_messages(limit: int = 50):
         print(f"Failed to get messages: {e}")
         return []
 
-# ===== API ENDPOINTS =====
 @app.get("/", response_class=HTMLResponse)
 async def chat_page(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -112,13 +94,9 @@ async def chat(chat_req: ChatRequest):
     user_msg = chat_req.message.strip()
     if not user_msg:
         raise HTTPException(400, "Empty message")
-    
-    print(f"Received: {user_msg} | Language: {chat_req.language}")
-    
     user_saved = await save_message("user", user_msg)
     bot_reply = await get_model_reply(user_msg, chat_req.language)
     bot_saved = await save_message("assistant", bot_reply)
-    
     return ChatResponse(reply=bot_reply, saved=user_saved and bot_saved)
 
 @app.get("/history")
