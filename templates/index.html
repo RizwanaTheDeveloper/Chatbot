@@ -69,6 +69,7 @@
             let isRecording = false;
             let finalTranscript = '';
             let interimTranscript = '';
+            let isSending = false;   // ✅ Prevents duplicate sends
 
             // ---------- Helper: Get language code for speech recognition ----------
             function getLanguageCode() {
@@ -76,7 +77,7 @@
                 return map[languageSelect.value] || 'en-US';
             }
 
-            // ---------- Speech Recognition Setup (fixed duplicates) ----------
+            // ---------- Speech Recognition Setup ----------
             function setupRecognition() {
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
                     alert('Speech recognition not supported in this browser. Use Chrome, Edge, or Safari.');
@@ -105,7 +106,6 @@
                         finalTranscript += newFinal;
                     }
 
-                    // Update input box: show final + interim
                     userInput.value = (finalTranscript + interimTranscript).trim();
                     userInput.scrollLeft = userInput.scrollWidth;
                 };
@@ -169,57 +169,31 @@
                 }
             });
 
-            // ---------- Text to Speech (FIXED for Hindi) ----------
+            // ---------- Text to Speech (Hindi fixed) ----------
             function speakText(text, langCode) {
-                if (!window.speechSynthesis) {
-                    console.error("Speech synthesis not supported");
-                    return;
-                }
-                
-                // Cancel any ongoing speech
+                if (!window.speechSynthesis) return;
                 window.speechSynthesis.cancel();
-                
+
                 const utterance = new SpeechSynthesisUtterance(text);
                 const langMap = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
                 const targetLang = langMap[langCode] || 'en-US';
                 utterance.lang = targetLang;
-                
-                // Function to select best voice and speak
+
                 const speakWithVoice = () => {
                     let voices = window.speechSynthesis.getVoices();
-                    console.log("Available voices:", voices.map(v => v.lang + ' - ' + v.name));
-                    
                     let selectedVoice = null;
-                    // 1. Exact match
                     selectedVoice = voices.find(voice => voice.lang === targetLang);
-                    // 2. Partial match (e.g., 'hi' for 'hi-IN')
                     if (!selectedVoice) {
                         const baseLang = targetLang.split('-')[0];
                         selectedVoice = voices.find(voice => voice.lang.startsWith(baseLang));
                     }
-                    // 3. For Hindi, also try name containing 'Hindi'
                     if (!selectedVoice && langCode === 'Hindi') {
                         selectedVoice = voices.find(voice => voice.name.toLowerCase().includes('hindi'));
                     }
-                    // 4. Fallback: any voice with the same base language (e.g., 'hi')
-                    if (!selectedVoice && langCode === 'Hindi') {
-                        selectedVoice = voices.find(voice => voice.lang.startsWith('hi'));
-                    }
-                    
-                    if (selectedVoice) {
-                        utterance.voice = selectedVoice;
-                        console.log("Using voice:", selectedVoice.name, selectedVoice.lang);
-                    } else {
-                        console.warn("No specific voice found for", targetLang, "- using default browser voice");
-                        // Still set language hint - browser may use online TTS
-                    }
-                    
-                    // Important: Some browsers require the utterance to be created after user gesture
-                    // But we are inside a click handler, so it's fine.
+                    if (selectedVoice) utterance.voice = selectedVoice;
                     window.speechSynthesis.speak(utterance);
                 };
-                
-                // Voices might not be loaded yet
+
                 if (window.speechSynthesis.getVoices().length > 0) {
                     speakWithVoice();
                 } else {
@@ -269,18 +243,24 @@
                 appendMessage('assistant', 'Hi! How can I help you today?', languageSelect.value);
             }
 
-            // ---------- Send Message ----------
+            // ---------- Send Message (with duplicate protection) ----------
             async function sendMessage() {
+                // ✅ Prevent multiple simultaneous sends
+                if (isSending) return;
+                
                 let message = userInput.value.trim();
                 if (!message) return;
 
                 if (isRecording) {
                     stopRecording();
+                    // Wait a bit for recognition to finalize
                     await new Promise(r => setTimeout(r, 200));
                     message = userInput.value.trim();
                     if (!message) return;
                 }
 
+                // Mark as sending and disable UI
+                isSending = true;
                 const lang = languageSelect.value;
                 const disableElems = [userInput, sendBtn, micBtn, languageSelect];
                 disableElems.forEach(el => el.disabled = true);
@@ -313,6 +293,7 @@
                 } finally {
                     disableElems.forEach(el => el.disabled = false);
                     userInput.focus();
+                    isSending = false;   // ✅ Allow next send
                 }
             }
 
