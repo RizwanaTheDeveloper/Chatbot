@@ -40,7 +40,7 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h2>🤖 Chatbot.AI</h2>
+            <h2></h2> Chatbot.AI</h2>
             <button id="refresh-chat-btn" class="clear-btn">⟳ Refresh</button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
@@ -48,7 +48,6 @@
             <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
             <select id="language-select" class="language-select">
                 <option value="English"> English</option>
-                <option value="Hindi"> हिन्दी</option>
                 <option value="Telugu"> తెలుగు</option>
             </select>
             <button id="mic-btn" class="mic-button" title="Click to record, click again to stop">🎤</button>
@@ -71,9 +70,7 @@
             let interimTranscript = '';
             let isSending = false;   // ✅ Prevents duplicate sends
 
-            // ---------- Helper: Get language code for speech recognition ----------
-            function getLanguageCode() {
-                const map = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
+            // ---------- Helper: Get language code 'Telugu': 'te-IN' };
                 return map[languageSelect.value] || 'en-US';
             }
 
@@ -175,7 +172,7 @@
                 window.speechSynthesis.cancel();
 
                 const utterance = new SpeechSynthesisUtterance(text);
-                const langMap = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
+                const langMap = { 'English': 'en-US','Telugu': 'te-IN' };
                 const targetLang = langMap[langCode] || 'en-US';
                 utterance.lang = targetLang;
 
@@ -186,9 +183,6 @@
                     if (!selectedVoice) {
                         const baseLang = targetLang.split('-')[0];
                         selectedVoice = voices.find(voice => voice.lang.startsWith(baseLang));
-                    }
-                    if (!selectedVoice && langCode === 'Hindi') {
-                        selectedVoice = voices.find(voice => voice.name.toLowerCase().includes('hindi'));
                     }
                     if (selectedVoice) utterance.voice = selectedVoice;
                     window.speechSynthesis.speak(utterance);
