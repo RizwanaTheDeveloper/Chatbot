@@ -2,34 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
     <title>AI ChatBot</title>
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/4712/4712109.png">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .refresh-chat-btn {
-            background: #3498db;
-            margin-right: 0;
-        }
-        .refresh-chat-btn:hover {
-            background: #2980b9;
-        }
         .saved-toast {
             position: fixed;
             bottom: 20px;
             right: 20px;
             background: #2ecc71;
             color: white;
-            padding: 12px 20px;
-            border-radius: 30px;
-            font-size: 14px;
-            font-weight: bold;
+            padding: 10px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 1000;
-            animation: slideIn 0.3s ease, fadeOut 0.5s ease 2s forwards;
+            animation: slideIn 0.3s ease, fadeOut 0.5s ease 2.5s forwards;
             pointer-events: none;
         }
         .saved-toast.error {
@@ -47,8 +40,8 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h2>Chatbot.AI</h2>
-            <button id="refresh-chat-btn" class="clear-btn refresh-chat-btn">Refresh</button>
+            <h2>🤖 Chatbot.AI</h2>
+            <button id="refresh-chat-btn" class="clear-btn">⟳ Refresh</button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-area">
@@ -58,270 +51,211 @@
                 <option value="Hindi">🇮🇳 हिन्दी</option>
                 <option value="Telugu">🇮🇳 తెలుగు</option>
             </select>
-            <button id="mic-btn" class="mic-button" title="Click to start recording, click again to stop">🎤</button>
+            <button id="mic-btn" class="mic-button" title="Click to record, click again to stop">🎤</button>
             <button id="send-btn">Send</button>
         </div>
     </div>
 
     <script>
-        const messagesDiv = document.getElementById('chat-messages');
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const refreshChatBtn = document.getElementById('refresh-chat-btn');
-        const micBtn = document.getElementById('mic-btn');
-        const languageSelect = document.getElementById('language-select');
+        (function() {
+            const messagesDiv = document.getElementById('chat-messages');
+            const userInput = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const refreshChatBtn = document.getElementById('refresh-chat-btn');
+            const micBtn = document.getElementById('mic-btn');
+            const languageSelect = document.getElementById('language-select');
 
-        let recognition = null;
-        let isRecording = false;
-        let finalTranscript = '';
+            let recognition = null;
+            let isRecording = false;
+            let finalTranscript = '';
 
-        // Function to get language code
-        function getLanguageCode() {
-            const langMap = {
-                'English': 'en-US',
-                'Hindi': 'hi-IN',
-                'Telugu': 'te-IN'
-            };
-            return langMap[languageSelect.value] || 'en-US';
-        }
-
-        // Initialize and setup recognition
-        function setupRecognition() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
-                return null;
+            function getLanguageCode() {
+                const map = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
+                return map[languageSelect.value] || 'en-US';
             }
-            
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recog = new SpeechRecognition();
-            recog.continuous = true;
-            recog.interimResults = true;
-            recog.lang = getLanguageCode();
-            
-            // Set up event handlers
-            recog.onresult = (event) => {
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript + ' ';
-                    } else {
-                        interimTranscript += transcript;
+
+            function setupRecognition() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    alert('Speech recognition not supported in this browser. Use Chrome, Edge, or Safari.');
+                    return null;
+                }
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recog = new SpeechRecognition();
+                recog.continuous = true;
+                recog.interimResults = true;
+                recog.lang = getLanguageCode();
+
+                recog.onresult = (event) => {
+                    let interim = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript + ' ';
+                        } else {
+                            interim += transcript;
+                        }
                     }
-                }
-                // Update input box with live transcription
-                if (interimTranscript) {
-                    userInput.value = finalTranscript + interimTranscript;
-                } else {
-                    userInput.value = finalTranscript.trim();
-                }
-                userInput.scrollLeft = userInput.scrollWidth;
-            };
-            
-            recog.onend = () => {
-                // When recording stops, paste final text into input box
-                if (finalTranscript.trim()) {
-                    userInput.value = finalTranscript.trim();
-                    userInput.focus();
-                }
-                isRecording = false;
-                micBtn.classList.remove('recording');
-                micBtn.title = 'Start recording';
-                micBtn.textContent = '🎤';
-                userInput.placeholder = 'Type your message...';
-                finalTranscript = '';
-            };
-            
-            recog.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                if (event.error === 'not-allowed') {
-                    alert('Microphone access denied. Please allow microphone permissions.');
-                }
-                if (isRecording) {
+                    userInput.value = interim ? finalTranscript + interim : finalTranscript.trim();
+                    userInput.scrollLeft = userInput.scrollWidth;
+                };
+
+                recog.onend = () => {
+                    if (finalTranscript.trim()) {
+                        userInput.value = finalTranscript.trim();
+                        userInput.focus();
+                    }
                     isRecording = false;
                     micBtn.classList.remove('recording');
                     micBtn.textContent = '🎤';
                     micBtn.title = 'Start recording';
                     userInput.placeholder = 'Type your message...';
+                    finalTranscript = '';
+                };
+
+                recog.onerror = (event) => {
+                    console.error('Speech error:', event.error);
+                    if (event.error === 'not-allowed') alert('Microphone permission denied.');
+                    if (isRecording) {
+                        isRecording = false;
+                        micBtn.classList.remove('recording');
+                        micBtn.textContent = '🎤';
+                        userInput.placeholder = 'Type your message...';
+                    }
+                };
+                return recog;
+            }
+
+            function startRecording() {
+                if (isRecording) return;
+                recognition = setupRecognition();
+                if (!recognition) return;
+                finalTranscript = '';
+                userInput.value = '';
+                recognition.start();
+                isRecording = true;
+                micBtn.classList.add('recording');
+                micBtn.textContent = '⏹️';
+                micBtn.title = 'Stop recording';
+                userInput.placeholder = 'Recording... click mic again to stop';
+            }
+
+            function stopRecording() {
+                if (recognition && isRecording) recognition.stop();
+            }
+
+            micBtn.addEventListener('click', () => {
+                if (isRecording) stopRecording();
+                else startRecording();
+            });
+
+            languageSelect.addEventListener('change', () => {
+                if (recognition && !isRecording) recognition.lang = getLanguageCode();
+            });
+
+            // Text to speech
+            function speakText(text, langCode) {
+                if (!window.speechSynthesis) return;
+                const utterance = new SpeechSynthesisUtterance(text);
+                const langMap = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
+                utterance.lang = langMap[langCode] || 'en-US';
+                utterance.rate = 0.9;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // UI helpers
+            function showToast(success) {
+                const toast = document.createElement('div');
+                toast.className = 'saved-toast';
+                if (!success) toast.classList.add('error');
+                toast.innerHTML = success ? '✓ Message sent!' : '✗ Failed to send';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2500);
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function appendMessage(role, content, lang = null) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${role === 'user' ? 'user-message' : 'bot-message'}`;
+                if (role === 'assistant') {
+                    const contentSpan = document.createElement('span');
+                    contentSpan.className = 'message-content';
+                    contentSpan.innerHTML = `<strong>Bot:</strong> ${escapeHtml(content)}`;
+                    const speaker = document.createElement('button');
+                    speaker.className = 'speaker-btn';
+                    speaker.innerHTML = '🔊';
+                    speaker.title = 'Read aloud';
+                    speaker.onclick = () => speakText(content, lang || languageSelect.value);
+                    msgDiv.appendChild(contentSpan);
+                    msgDiv.appendChild(speaker);
+                } else {
+                    msgDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(content)}`;
                 }
-            };
-            
-            return recog;
-        }
-
-        // Start recording
-        function startRecording() {
-            if (isRecording) return;
-            
-            recognition = setupRecognition();
-            if (!recognition) return;
-            
-            finalTranscript = '';
-            userInput.value = '';
-            recognition.start();
-            isRecording = true;
-            micBtn.classList.add('recording');
-            micBtn.title = 'Stop recording';
-            micBtn.textContent = '⏹️';
-            userInput.placeholder = 'Recording... click mic button again to stop';
-        }
-
-        // Stop recording
-        function stopRecording() {
-            if (recognition && isRecording) {
-                recognition.stop();
+                messagesDiv.appendChild(msgDiv);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
-        }
 
-        // Toggle mic button
-        micBtn.addEventListener('click', () => {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
+            function showGreeting() {
+                messagesDiv.innerHTML = '';
+                appendMessage('assistant', 'Hi! How can I help you today?', languageSelect.value);
             }
-        });
 
-        // Update language if changed while not recording
-        languageSelect.addEventListener('change', () => {
-            if (recognition && !isRecording) {
-                recognition.lang = getLanguageCode();
-            }
-        });
-
-        // --- Text-to-Speech ---
-        function speakText(text, languageCode) {
-            if (!window.speechSynthesis) return;
-            const langMap = {
-                'English': 'en-US',
-                'Hindi': 'hi-IN',
-                'Telugu': 'te-IN'
-            };
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = langMap[languageCode] || 'en-US';
-            utterance.rate = 0.9;
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(utterance);
-        }
-
-        // --- Chat Logic ---
-        function showSavedNotification(success = true) {
-            const toast = document.createElement('div');
-            toast.className = 'saved-toast';
-            if (!success) toast.classList.add('error');
-            toast.innerHTML = success ? 'Message Sent!' : 'Failed to send message';
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2500);
-        }
-
-        function appendMessage(role, content, language = null) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', role === 'user' ? 'user-message' : 'bot-message');
-            
-            if (role === 'assistant') {
-                const contentSpan = document.createElement('span');
-                contentSpan.className = 'message-content';
-                contentSpan.innerHTML = `<strong>Bot:</strong> ${escapeHtml(content)}`;
-                
-                const speakerBtn = document.createElement('button');
-                speakerBtn.className = 'speaker-btn';
-                speakerBtn.innerHTML = '🔊';
-                speakerBtn.title = 'Read aloud';
-                speakerBtn.addEventListener('click', () => {
-                    speakText(content, language || languageSelect.value);
-                });
-                
-                msgDiv.appendChild(contentSpan);
-                msgDiv.appendChild(speakerBtn);
-            } else {
-                msgDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(content)}`;
-            }
-            messagesDiv.appendChild(msgDiv);
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function scrollToBottom() {
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function showGreeting() {
-            messagesDiv.innerHTML = '';
-            const greeting = "Hi! How can I help you today?";
-            appendMessage('assistant', greeting, languageSelect.value);
-            scrollToBottom();
-        }
-
-        async function sendMessage() {
-            let message = userInput.value.trim();
-            if (!message) return;
-
-            // If recording is active, stop it first
-            if (isRecording) {
-                stopRecording();
-                await new Promise(resolve => setTimeout(resolve, 200));
-                message = userInput.value.trim();
+            async function sendMessage() {
+                let message = userInput.value.trim();
                 if (!message) return;
+
+                if (isRecording) {
+                    stopRecording();
+                    await new Promise(r => setTimeout(r, 150));
+                    message = userInput.value.trim();
+                    if (!message) return;
+                }
+
+                const lang = languageSelect.value;
+                // disable UI
+                const disableElems = [userInput, sendBtn, micBtn, languageSelect];
+                disableElems.forEach(el => el.disabled = true);
+
+                appendMessage('user', message);
+                userInput.value = '';
+
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message bot-message typing-indicator';
+                typingDiv.innerHTML = '<strong>Bot:</strong> typing...';
+                messagesDiv.appendChild(typingDiv);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+                try {
+                    const res = await fetch('/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message, language: lang })
+                    });
+                    const data = await res.json();
+                    typingDiv.remove();
+                    showToast(data.saved === true);
+                    appendMessage('assistant', data.reply, lang);
+                } catch (err) {
+                    typingDiv.remove();
+                    appendMessage('assistant', 'Network error. Please try again.', lang);
+                    showToast(false);
+                } finally {
+                    disableElems.forEach(el => el.disabled = false);
+                    userInput.focus();
+                }
             }
 
-            const language = languageSelect.value;
+            sendBtn.addEventListener('click', sendMessage);
+            userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+            refreshChatBtn.addEventListener('click', showGreeting);
 
-            userInput.disabled = true;
-            sendBtn.disabled = true;
-            micBtn.disabled = true;
-            languageSelect.disabled = true;
-
-            appendMessage('user', message);
-            userInput.value = '';
-            scrollToBottom();
-
-            const typingDiv = document.createElement('div');
-            typingDiv.classList.add('message', 'bot-message', 'typing-indicator');
-            typingDiv.innerHTML = '<strong>Bot:</strong> typing...';
-            messagesDiv.appendChild(typingDiv);
-            scrollToBottom();
-
-            try {
-                const res = await fetch('/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message, language: language })
-                });
-                const data = await res.json();
-                typingDiv.remove();
-
-                showSavedNotification(data.saved === true);
-                appendMessage('assistant', data.reply, language);
-                scrollToBottom();
-            } catch (error) {
-                typingDiv.remove();
-                appendMessage('assistant', 'Network error. Please try again.', language);
-                showSavedNotification(false);
-                scrollToBottom();
-            } finally {
-                userInput.disabled = false;
-                sendBtn.disabled = false;
-                micBtn.disabled = false;
-                languageSelect.disabled = false;
-                userInput.focus();
-            }
-        }
-
-        function refreshChatDisplay() {
             showGreeting();
-        }
-
-        sendBtn.addEventListener('click', sendMessage);
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-        refreshChatBtn.addEventListener('click', refreshChatDisplay);
-
-        showGreeting();
+        })();
     </script>
 </body>
 </html>
