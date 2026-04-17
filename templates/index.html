@@ -122,7 +122,6 @@
                     micBtn.textContent = '🎤';
                     micBtn.title = 'Start recording';
                     userInput.placeholder = 'Type your message...';
-                    // Do NOT clear finalTranscript here – user may want to edit before sending.
                 };
 
                 recog.onerror = (event) => {
@@ -140,7 +139,6 @@
 
             function startRecording() {
                 if (isRecording) return;
-                // Reset transcripts
                 finalTranscript = '';
                 interimTranscript = '';
                 userInput.value = '';
@@ -171,51 +169,61 @@
                 }
             });
 
-            // ---------- Text to Speech (fix for Hindi/Telugu) ----------
+            // ---------- Text to Speech (FIXED for Hindi) ----------
             function speakText(text, langCode) {
-                if (!window.speechSynthesis) return;
-                window.speechSynthesis.cancel(); // stop any ongoing speech
-
+                if (!window.speechSynthesis) {
+                    console.error("Speech synthesis not supported");
+                    return;
+                }
+                
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
+                
                 const utterance = new SpeechSynthesisUtterance(text);
                 const langMap = { 'English': 'en-US', 'Hindi': 'hi-IN', 'Telugu': 'te-IN' };
                 const targetLang = langMap[langCode] || 'en-US';
                 utterance.lang = targetLang;
-
-                // Wait for voices to load, then select the best match
-                const setVoice = () => {
+                
+                // Function to select best voice and speak
+                const speakWithVoice = () => {
                     let voices = window.speechSynthesis.getVoices();
-                    if (voices.length === 0) {
-                        // Voices not loaded yet, try again after a short delay
-                        setTimeout(setVoice, 50);
-                        return;
-                    }
-                    // Find a voice that matches the target language (e.g., 'hi-IN' or starts with 'hi')
+                    console.log("Available voices:", voices.map(v => v.lang + ' - ' + v.name));
+                    
                     let selectedVoice = null;
-                    for (let voice of voices) {
-                        if (voice.lang === targetLang) {
-                            selectedVoice = voice;
-                            break;
-                        }
-                    }
-                    // Fallback: any voice whose language starts with the base code (e.g., 'hi' for Hindi)
+                    // 1. Exact match
+                    selectedVoice = voices.find(voice => voice.lang === targetLang);
+                    // 2. Partial match (e.g., 'hi' for 'hi-IN')
                     if (!selectedVoice) {
                         const baseLang = targetLang.split('-')[0];
-                        for (let voice of voices) {
-                            if (voice.lang.startsWith(baseLang)) {
-                                selectedVoice = voice;
-                                break;
-                            }
-                        }
+                        selectedVoice = voices.find(voice => voice.lang.startsWith(baseLang));
                     }
-                    if (selectedVoice) utterance.voice = selectedVoice;
+                    // 3. For Hindi, also try name containing 'Hindi'
+                    if (!selectedVoice && langCode === 'Hindi') {
+                        selectedVoice = voices.find(voice => voice.name.toLowerCase().includes('hindi'));
+                    }
+                    // 4. Fallback: any voice with the same base language (e.g., 'hi')
+                    if (!selectedVoice && langCode === 'Hindi') {
+                        selectedVoice = voices.find(voice => voice.lang.startsWith('hi'));
+                    }
+                    
+                    if (selectedVoice) {
+                        utterance.voice = selectedVoice;
+                        console.log("Using voice:", selectedVoice.name, selectedVoice.lang);
+                    } else {
+                        console.warn("No specific voice found for", targetLang, "- using default browser voice");
+                        // Still set language hint - browser may use online TTS
+                    }
+                    
+                    // Important: Some browsers require the utterance to be created after user gesture
+                    // But we are inside a click handler, so it's fine.
                     window.speechSynthesis.speak(utterance);
                 };
-
-                // If voices are already loaded, call immediately; otherwise wait for event
+                
+                // Voices might not be loaded yet
                 if (window.speechSynthesis.getVoices().length > 0) {
-                    setVoice();
+                    speakWithVoice();
                 } else {
-                    window.speechSynthesis.onvoiceschanged = setVoice;
+                    window.speechSynthesis.onvoiceschanged = speakWithVoice;
                 }
             }
 
@@ -274,13 +282,11 @@
                 }
 
                 const lang = languageSelect.value;
-                // Disable UI
                 const disableElems = [userInput, sendBtn, micBtn, languageSelect];
                 disableElems.forEach(el => el.disabled = true);
 
                 appendMessage('user', message);
                 userInput.value = '';
-                // Clear speech recognition transcripts after sending
                 finalTranscript = '';
                 interimTranscript = '';
 
