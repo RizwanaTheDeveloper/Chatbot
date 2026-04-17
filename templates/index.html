@@ -40,7 +40,7 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h2></h2> Chatbot.AI</h2>
+            <h2>🤖 Chatbot.AI</h2>
             <button id="refresh-chat-btn" class="clear-btn">⟳ Refresh</button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
@@ -68,13 +68,13 @@
             let isRecording = false;
             let finalTranscript = '';
             let interimTranscript = '';
-            let isSending = false;   // ✅ Prevents duplicate sends
+            let isSending = false;
 
-            // ---------- Helper: Get language code 'Telugu': 'te-IN' };
+            function getLanguageCode() {
+                const map = { 'English': 'en-US', 'Telugu': 'te-IN' };
                 return map[languageSelect.value] || 'en-US';
             }
 
-            // ---------- Speech Recognition Setup ----------
             function setupRecognition() {
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
                     alert('Speech recognition not supported in this browser. Use Chrome, Edge, or Safari.');
@@ -89,7 +89,6 @@
                 recog.onresult = (event) => {
                     interimTranscript = '';
                     let newFinal = '';
-
                     for (let i = event.resultIndex; i < event.results.length; i++) {
                         const transcript = event.results[i][0].transcript;
                         if (event.results[i].isFinal) {
@@ -98,22 +97,14 @@
                             interimTranscript += transcript;
                         }
                     }
-
-                    if (newFinal) {
-                        finalTranscript += newFinal;
-                    }
-
+                    if (newFinal) finalTranscript += newFinal;
                     userInput.value = (finalTranscript + interimTranscript).trim();
                     userInput.scrollLeft = userInput.scrollWidth;
                 };
 
                 recog.onend = () => {
-                    if (finalTranscript.trim()) {
-                        userInput.value = finalTranscript.trim();
-                        userInput.focus();
-                    } else if (interimTranscript.trim()) {
-                        userInput.value = interimTranscript.trim();
-                    }
+                    if (finalTranscript.trim()) userInput.value = finalTranscript.trim();
+                    else if (interimTranscript.trim()) userInput.value = interimTranscript.trim();
                     isRecording = false;
                     micBtn.classList.remove('recording');
                     micBtn.textContent = '🎤';
@@ -150,9 +141,7 @@
             }
 
             function stopRecording() {
-                if (recognition && isRecording) {
-                    recognition.stop();
-                }
+                if (recognition && isRecording) recognition.stop();
             }
 
             micBtn.addEventListener('click', () => {
@@ -161,41 +150,30 @@
             });
 
             languageSelect.addEventListener('change', () => {
-                if (recognition && !isRecording) {
-                    recognition.lang = getLanguageCode();
-                }
+                if (recognition && !isRecording) recognition.lang = getLanguageCode();
             });
 
-            // ---------- Text to Speech (Hindi fixed) ----------
             function speakText(text, langCode) {
                 if (!window.speechSynthesis) return;
                 window.speechSynthesis.cancel();
-
                 const utterance = new SpeechSynthesisUtterance(text);
-                const langMap = { 'English': 'en-US','Telugu': 'te-IN' };
+                const langMap = { 'English': 'en-US', 'Telugu': 'te-IN' };
                 const targetLang = langMap[langCode] || 'en-US';
                 utterance.lang = targetLang;
-
                 const speakWithVoice = () => {
                     let voices = window.speechSynthesis.getVoices();
-                    let selectedVoice = null;
-                    selectedVoice = voices.find(voice => voice.lang === targetLang);
+                    let selectedVoice = voices.find(v => v.lang === targetLang);
                     if (!selectedVoice) {
                         const baseLang = targetLang.split('-')[0];
-                        selectedVoice = voices.find(voice => voice.lang.startsWith(baseLang));
+                        selectedVoice = voices.find(v => v.lang.startsWith(baseLang));
                     }
                     if (selectedVoice) utterance.voice = selectedVoice;
                     window.speechSynthesis.speak(utterance);
                 };
-
-                if (window.speechSynthesis.getVoices().length > 0) {
-                    speakWithVoice();
-                } else {
-                    window.speechSynthesis.onvoiceschanged = speakWithVoice;
-                }
+                if (window.speechSynthesis.getVoices().length > 0) speakWithVoice();
+                else window.speechSynthesis.onvoiceschanged = speakWithVoice;
             }
 
-            // ---------- UI Helpers ----------
             function showToast(success) {
                 const toast = document.createElement('div');
                 toast.className = 'saved-toast';
@@ -237,39 +215,29 @@
                 appendMessage('assistant', 'Hi! How can I help you today?', languageSelect.value);
             }
 
-            // ---------- Send Message (with duplicate protection) ----------
             async function sendMessage() {
-                // ✅ Prevent multiple simultaneous sends
                 if (isSending) return;
-                
                 let message = userInput.value.trim();
                 if (!message) return;
-
                 if (isRecording) {
                     stopRecording();
-                    // Wait a bit for recognition to finalize
                     await new Promise(r => setTimeout(r, 200));
                     message = userInput.value.trim();
                     if (!message) return;
                 }
-
-                // Mark as sending and disable UI
                 isSending = true;
                 const lang = languageSelect.value;
                 const disableElems = [userInput, sendBtn, micBtn, languageSelect];
                 disableElems.forEach(el => el.disabled = true);
-
                 appendMessage('user', message);
                 userInput.value = '';
                 finalTranscript = '';
                 interimTranscript = '';
-
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'message bot-message typing-indicator';
                 typingDiv.innerHTML = '<strong>Bot:</strong> typing...';
                 messagesDiv.appendChild(typingDiv);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
                 try {
                     const res = await fetch('/chat', {
                         method: 'POST',
@@ -287,14 +255,13 @@
                 } finally {
                     disableElems.forEach(el => el.disabled = false);
                     userInput.focus();
-                    isSending = false;   // ✅ Allow next send
+                    isSending = false;
                 }
             }
 
             sendBtn.addEventListener('click', sendMessage);
             userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
             refreshChatBtn.addEventListener('click', showGreeting);
-
             showGreeting();
         })();
     </script>
