@@ -70,19 +70,15 @@ body {
     min-height: 0;
 }
 
-/* Message bubble container */
 .message {
-    display: flex;
-    align-items: center;
     max-width: 75%;
     padding: 10px 15px;
     border-radius: 20px;
     line-height: 1.4;
     word-wrap: break-word;
-    gap: 10px;
+    position: relative;
 }
 
-/* User message - background on whole flex container */
 .user-message {
     align-self: flex-end;
     background: #2c3e66;
@@ -90,40 +86,41 @@ body {
     border-bottom-right-radius: 5px;
 }
 
-/* Bot message - background on whole flex container */
 .bot-message {
     align-self: flex-start;
     background: white;
     color: #333;
     border: 1px solid #ddd;
     border-bottom-left-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
 }
 
-/* Text content takes remaining space */
-.message-content {
+.bot-message .message-content {
     flex: 1;
 }
 
-/* Speaker button (icon, on the left) */
-.speak-btn {
+.speaker-btn {
     background: none;
     border: none;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 20px;
+    padding: 5px;
+    border-radius: 50%;
     transition: background 0.2s;
-    color: inherit;
-    order: -1;  /* moves button to the left side */
+    color: #2c3e66;
+    opacity: 0.7;
 }
 
-.speak-btn:hover {
-    background: rgba(0,0,0,0.1);
+.speaker-btn:hover {
+    background: #e0e0e0;
+    opacity: 1;
 }
 
-/* Hide speaker button on user messages */
-.user-message .speak-btn {
-    display: none;
+.speaker-btn:active {
+    transform: scale(0.95);
 }
 
 .typing-indicator {
@@ -139,10 +136,11 @@ body {
     gap: 10px;
     flex-shrink: 0;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 #user-input {
-    flex: 1;
+    flex: 2;
     padding: 12px 15px;
     border: 2px solid #e0e0e0;
     border-radius: 30px;
@@ -155,21 +153,21 @@ body {
     border-color: #2c3e66;
 }
 
-.lang-select {
-    padding: 8px 12px;
+.language-select {
+    padding: 10px 12px;
     border-radius: 30px;
     border: 2px solid #e0e0e0;
-    background: rgb(254, 254, 250);
+    background: white;
     font-size: 0.9rem;
     cursor: pointer;
     outline: none;
+    transition: border 0.2s;
 }
 
-.lang-select:focus {
+.language-select:focus {
     border-color: #2c3e66;
 }
 
-/* Mic button - only emoji */
 .mic-button {
     background: #f0f0f0;
     border: none;
@@ -199,24 +197,53 @@ body {
     transform: none;
 }
 
-/* Send button - wider */
+.mic-button.recording {
+    background: #e74c3c;
+    color: white;
+    animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 #send-btn {
     background: #2c3e66;
     color: white;
     border: none;
-    padding: 9px 20px;
-    border-radius: 40px;
-    font-size: 0.9rem;
+    padding: 0 25px;
+    border-radius: 30px;
+    font-size: 1rem;
     cursor: pointer;
     transition: background 0.2s;
-    min-width: 70px;
 }
 
 #send-btn:hover {
     background: #1e2a4a;
 }
 
-#send-btn:disabled, #user-input:disabled, .mic-button:disabled {
+#send-btn:disabled, #user-input:disabled, .mic-button:disabled, .language-select:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+    .chat-input-area {
+        flex-wrap: wrap;
+    }
+    #user-input {
+        flex: 1 1 100%;
+        order: 1;
+    }
+    .language-select {
+        order: 2;
+    }
+    .mic-button {
+        order: 3;
+    }
+    #send-btn {
+        order: 4;
+    }
 }
